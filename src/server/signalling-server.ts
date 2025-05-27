@@ -108,6 +108,24 @@ wss.on('connection', ws => {
           );
           break;
 
+        case 'consume':
+          // Send fake consumer parameters
+          ws.send(
+            JSON.stringify({
+              type: 'consumerCreated',
+              consumerId: 'fake-consumer-' + Date.now(),
+              producerId: data.producerId,
+              kind: 'video',
+              rtpParameters: {
+                codecs: FAKE_RTP_CAPABILITIES.codecs,
+                headerExtensions: FAKE_RTP_CAPABILITIES.headerExtensions,
+                encodings: [{ ssrc: Math.floor(Math.random() * 1000000) }],
+                rtcp: { cname: 'fake-cname-' + Date.now() }
+              }
+            })
+          );
+          break;
+
         default:
           console.log(`Unknown message type: ${data.type}`);
       }
@@ -126,7 +144,8 @@ wss.on('connection', ws => {
 });
 
 console.log('Supported message types:');
-console.log('  • join → joined + routerRtpCapabilities');
-console.log('  • createWebRtcTransport → webRtcTransportCreated');
-console.log('  • connectTransport → transportConnected');
-console.log('  • produce → producerCreated');
+console.log(' • join → joined + routerRtpCapabilities');
+console.log(' • createWebRtcTransport → webRtcTransportCreated');
+console.log(' • connectTransport → transportConnected');
+console.log(' • produce → producerCreated');
+console.log(' • consume → consumerCreated');

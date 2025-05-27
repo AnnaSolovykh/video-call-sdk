@@ -10,7 +10,19 @@ export class VideoCallClient {
 
   private device?: mediasoupClient.Device;
   private sendTransport?: mediasoupClient.types.Transport;
+  private recvTransport?: mediasoupClient.types.Transport;
   private localVideoProducer?: mediasoupClient.types.Producer;
+
+  // Remote participants management
+  private remoteConsumers = new Map<
+    string,
+    {
+      userId: string;
+      producerId: string;
+      consumer: mediasoupClient.types.Consumer;
+      track: MediaStreamTrack;
+    }
+  >();
 
   private roomId?: string;
   private userId?: string;
@@ -27,16 +39,15 @@ export class VideoCallClient {
     this.roomId = roomId;
     this.userId = userId;
 
-    // Register handlers for expected server events
     this.signaling.on('joined', data => {
       console.log(`[VideoCallClient] Joined room: ${data.roomId}`);
     });
 
-    this.signaling.on('newProducer', data => {
+    this.signaling.on('newProducer', async data => {
       console.log(`[VideoCallClient] New producer from user ${data.userId}`);
+      await this.handleNewProducer(data.producerId, data.userId);
     });
 
-    // Handle router RTP capabilities from server (needed for mediasoup device initialization)
     this.signaling.on('routerRtpCapabilities', async data => {
       console.log('[VideoCallClient] Received router RTP capabilities');
       try {
@@ -47,7 +58,6 @@ export class VideoCallClient {
       }
     });
 
-    // Send 'join' message once WebSocket is ready
     try {
       await this.signaling.sendWhenReady({ type: 'join', roomId, userId });
     } catch (error) {
@@ -69,7 +79,6 @@ export class VideoCallClient {
     }
 
     try {
-      // Get user's camera stream
       console.log('[VideoCallClient] Requesting camera access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 },
@@ -81,12 +90,10 @@ export class VideoCallClient {
         throw new Error('No video track found in media stream');
       }
 
-      // Create send transport if not exists
       if (!this.sendTransport) {
         await this.createSendTransport();
       }
 
-      // Create video producer
       console.log('[VideoCallClient] Creating video producer...');
       this.localVideoProducer = await this.sendTransport!.produce({
         track: videoTrack,
@@ -102,7 +109,6 @@ export class VideoCallClient {
 
       console.log(`[VideoCallClient] Video producer created: ${this.localVideoProducer.id}`);
 
-      // Handle producer events
       this.localVideoProducer.on('transportclose', () => {
         console.log('[VideoCallClient] Video producer transport closed');
         this.localVideoProducer = undefined;
@@ -122,6 +128,29 @@ export class VideoCallClient {
       this.localVideoProducer.close();
       this.localVideoProducer = undefined;
       console.log('[VideoCallClient] Video stopped');
+    }
+  }
+
+  /**
+   * Handle new producer from remote participant.
+   * Creates consumer to receive their video stream.
+   */
+  private async handleNewProducer(producerId: string, userId: string): Promise<void> {
+    try {
+      console.log(`[VideoCallClient] Handling new producer ${producerId} from ${userId}`);
+
+      if (!this.device || !this.device.loaded) {
+        throw new Error('Device not ready for consuming');
+      }
+
+      if (!this.recvTransport) {
+        await this.createRecvTransport();
+      }
+
+      await this.createConsumer(producerId, userId);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[VideoCallClient] Failed to handle new producer:`, errorMessage);
     }
   }
 
@@ -216,16 +245,113 @@ export class VideoCallClient {
           }
         });
 
-        // Request transport from server
         this.signaling.sendWhenReady({
           type: 'createWebRtcTransport',
-          consuming: false, // false = send transport
+          consuming: false,
           forceTcp: false,
         });
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to create send transport:', errorMessage);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a WebRTC receive transport for media consumption.
+   */
+  private async createRecvTransport(): Promise<void> {
+    try {
+      console.log('[VideoCallClient] Creating receive transport...');
+
+      await new Promise<void>((resolve, reject) => {
+        this.signaling.on('webRtcTransportCreated', async transportData => {
+          try {
+            this.recvTransport = this.device!.createRecvTransport({
+              id: transportData.transportId,
+              iceParameters: transportData.iceParameters,
+              iceCandidates: transportData.iceCandidates,
+              dtlsParameters: transportData.dtlsParameters,
+              sctpParameters: transportData.sctpParameters,
+            });
+
+            this.recvTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+              try {
+                await this.signaling.sendWhenReady({
+                  type: 'connectTransport',
+                  transportId: this.recvTransport!.id,
+                  dtlsParameters,
+                });
+                callback();
+              } catch (error) {
+                errback(error instanceof Error ? error : new Error('Unknown error'));
+              }
+            });
+
+            console.log('[VideoCallClient] Receive transport created successfully');
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+
+        this.signaling.sendWhenReady({
+          type: 'createWebRtcTransport',
+          consuming: true,
+          forceTcp: false,
+        });
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Failed to create receive transport:', errorMessage);
+      throw error;
+    }
+  }
+
+  /**
+   * Create consumer for specific producer to receive media stream.
+   */
+  private async createConsumer(producerId: string, userId: string): Promise<void> {
+    try {
+      console.log(`[VideoCallClient] Creating consumer for producer ${producerId}`);
+
+      await new Promise<void>((resolve, reject) => {
+        this.signaling.on('consumerCreated', async consumerData => {
+          try {
+            const consumer = await this.recvTransport!.consume({
+              id: consumerData.consumerId,
+              producerId: consumerData.producerId,
+              kind: consumerData.kind,
+              rtpParameters: consumerData.rtpParameters,
+            });
+
+            this.remoteConsumers.set(producerId, {
+              userId,
+              producerId,
+              consumer,
+              track: consumer.track,
+            });
+
+            console.log(`[VideoCallClient] Consumer created for ${userId}: ${consumer.id}`);
+            console.log(`[VideoCallClient] Remote video track available for ${userId}`);
+
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+
+        this.signaling.sendWhenReady({
+          type: 'consume',
+          transportId: this.recvTransport!.id,
+          producerId,
+          rtpCapabilities: this.device!.rtpCapabilities,
+        });
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Failed to create consumer:', errorMessage);
       throw error;
     }
   }
@@ -246,6 +372,21 @@ export class VideoCallClient {
       deviceReady: this.device?.loaded || false,
       inRoom: !!this.roomId,
       hasVideo: !!this.localVideoProducer,
+      remoteParticipants: this.remoteConsumers.size,
     };
+  }
+
+  /**
+   * Get remote video tracks for UI consumption.
+   */
+  get remoteVideoTracks() {
+    const tracks = new Map<string, { userId: string; track: MediaStreamTrack }>();
+    for (const [producerId, consumer] of this.remoteConsumers) {
+      tracks.set(producerId, {
+        userId: consumer.userId,
+        track: consumer.track,
+      });
+    }
+    return tracks;
   }
 }
