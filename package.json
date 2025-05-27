@@ -1,0 +1,23 @@
+{
+  "scripts": {
+    "dev:test": "tsx test/client-test.ts",
+    "watch:test": "nodemon --watch src --exec 'tsx test/client-test.ts'",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "format": "prettier --write \"src/**/*.{ts,js,json,md}\""
+  },
+  "dependencies": {
+    "mediasoup-client": "^3.11.0",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/ws": "^8.18.1",
+    "prettier": "^3.5.3",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}
