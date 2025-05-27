@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-import { SignalMessage } from '../types/events';
+import { AnySignalMessage } from '../types/events';
 
 /**
  * A signaling channel abstraction over WebSocket.
@@ -9,29 +9,26 @@ export class SignalingChannel {
   private socket: WebSocket;
   private listeners = new Map<string, ((data: any) => void)[]>();
   private isConnected = false;
-
   // Queue of messages to be sent once the WebSocket connection is open
-  private messageQueue: SignalMessage[] = [];
+  private messageQueue: AnySignalMessage[] = [];
 
   constructor(serverUrl: string) {
     this.socket = new WebSocket(serverUrl);
 
     // Handle incoming messages from the server
     this.socket.on('message', data => {
-      const parsed = JSON.parse(data.toString()) as SignalMessage;
+      const parsed = JSON.parse(data.toString()) as AnySignalMessage;
       this.emit(parsed.type, parsed);
     });
 
     // On successful connection, mark as connected and flush queued messages
     this.socket.on('open', () => {
       this.isConnected = true;
-
       // Flush all messages that were queued before connection opened
       while (this.messageQueue.length > 0) {
         const message = this.messageQueue.shift()!;
         this.socket.send(JSON.stringify(message));
       }
-
       this.emit('open', {});
     });
 
@@ -50,7 +47,7 @@ export class SignalingChannel {
   /**
    * Send a message to the server. If not connected, queue it until connection is ready.
    */
-  send(message: SignalMessage) {
+  send(message: AnySignalMessage) {
     if (this.isConnected) {
       this.socket.send(JSON.stringify(message));
     } else {
@@ -61,7 +58,7 @@ export class SignalingChannel {
   /**
    * Send a message only after connection is ready. Returns a Promise.
    */
-  async sendWhenReady(message: SignalMessage): Promise<void> {
+  async sendWhenReady(message: AnySignalMessage): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.isConnected) {
         this.socket.send(JSON.stringify(message));
