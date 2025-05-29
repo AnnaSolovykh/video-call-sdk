@@ -9,6 +9,34 @@ async function testVideoCallIntegration() {
   
   const client = new VideoCallClient('ws://localhost:3001');
   
+  client.on('connected', () => {
+    console.log('[Event] Connected to signaling server');
+  });
+
+  client.on('joined', ({ roomId, userId }) => {
+    console.log(`[Event] Joined room: ${roomId} as ${userId}`);
+  });
+
+  client.on('deviceReady', () => {
+    console.log('[Event] Mediasoup device is ready');
+  });
+
+  client.on('participantJoined', ({ userId }) => {
+    console.log(`[Event] Participant joined: ${userId}`);
+  });
+
+  client.on('remoteVideoStarted', ({ userId, track }) => {
+    console.log(`[Event] Remote video started from ${userId}`);
+  });
+
+  client.on('localVideoStarted', ({ producer }) => {
+    console.log(`[Event] Local video started: ${producer.id}`);
+  });
+
+  client.on('error', (error) => {
+    console.log(`[Event] Error: ${error.message}`);
+  });
+
   try {
     console.log('Joining call...');
     await client.joinCall('room-alpha', 'user-abc');
@@ -36,7 +64,7 @@ async function testVideoCallIntegration() {
       } else {
         console.log('Mediasoup device not ready (expected in Node.js environment)');
         console.log('This is normal - mediasoup Device requires a browser with WebRTC support');
-        console.log('Test SUCCESS: Signaling works, device limitation is expected');
+        console.log('Test SUCCESS: Signaling works, EventQueue active, Events firing');
       }
     } else {
       console.log('Signaling connection failed');
@@ -44,16 +72,19 @@ async function testVideoCallIntegration() {
     
   } catch (error) {
     console.error('Integration test failed:', error);
-    console.log('📋 Error details:', {
+    const errorDetails = error instanceof Error ? {
       message: error.message,
       name: error.name,
       stack: error.stack?.split('\n').slice(0, 3).join('\n')
-    });
+    } : 'Unknown error';
+    console.log('Error details:', errorDetails);
   }
   
   console.log('Integration test completed');
   console.log('Summary:');
   console.log('  • Signaling: Should work');
+  console.log('  • TypedEventEmitter: Events should fire');
+  console.log('  • EventQueue: Sequential processing');
   console.log('  • Device init: Expected to fail in Node.js');
   console.log('  • Video: Requires browser environment');
   

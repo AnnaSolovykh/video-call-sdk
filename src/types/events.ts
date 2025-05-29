@@ -1,5 +1,6 @@
 import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { DtlsParameters } from 'mediasoup-client/lib/Transport';
+import * as mediasoupClient from 'mediasoup-client';
 
 // Base signaling message structure
 export type SignalMessage = {
@@ -174,3 +175,31 @@ export type VideoCallEventMap = {
   remoteAudioStarted: { userId: string; consumer: any };
   remoteAudioStopped: { userId: string };
 };
+
+export interface VideoCallEvents {
+  'connected': void;
+  'disconnected': void;
+  'error': Error;
+  'joined': { roomId: string; userId: string };
+  'deviceReady': void;
+  'localVideoStarted': { producer: mediasoupClient.types.Producer };
+  'localVideoStopped': void;
+  'remoteVideoStarted': { userId: string; producerId: string; track: MediaStreamTrack };
+  'remoteVideoStopped': { userId: string; producerId: string };
+  'participantJoined': { userId: string };
+  'participantLeft': { userId: string };
+  'reconnecting': void;
+  'reconnected': void;
+  'reconnectionFailed': Error;
+}
+
+export interface ConnectionStatus {
+  connected: boolean;
+  deviceReady: boolean;
+  inRoom: boolean;
+  hasVideo: boolean;
+  remoteParticipants: number;
+  queueSize: number;
+  processing: boolean;
+  reconnecting: boolean;
+}

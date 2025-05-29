@@ -1,26 +1,13 @@
-# Node
 node_modules/
 dist/
 .env
 .env.local
-
-# TypeScript
 *.tsbuildinfo
-
-# Logs
 logs/
 *.log
-
-# Test coverage
 coverage/
-
-# IDE
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Prettier
 .prettiercache

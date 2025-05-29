@@ -120,8 +120,8 @@ wss.on('connection', ws => {
                 codecs: FAKE_RTP_CAPABILITIES.codecs,
                 headerExtensions: FAKE_RTP_CAPABILITIES.headerExtensions,
                 encodings: [{ ssrc: Math.floor(Math.random() * 1000000) }],
-                rtcp: { cname: 'fake-cname-' + Date.now() }
-              }
+                rtcp: { cname: 'fake-cname-' + Date.now() },
+              },
             })
           );
           break;
