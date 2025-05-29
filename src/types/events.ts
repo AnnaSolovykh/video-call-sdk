@@ -1,6 +1,7 @@
 import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { DtlsParameters } from 'mediasoup-client/lib/Transport';
 import * as mediasoupClient from 'mediasoup-client';
+import { vi } from 'vitest';
 
 // Base signaling message structure
 export type SignalMessage = {
@@ -177,20 +178,20 @@ export type VideoCallEventMap = {
 };
 
 export interface VideoCallEvents {
-  'connected': void;
-  'disconnected': void;
-  'error': Error;
-  'joined': { roomId: string; userId: string };
-  'deviceReady': void;
-  'localVideoStarted': { producer: mediasoupClient.types.Producer };
-  'localVideoStopped': void;
-  'remoteVideoStarted': { userId: string; producerId: string; track: MediaStreamTrack };
-  'remoteVideoStopped': { userId: string; producerId: string };
-  'participantJoined': { userId: string };
-  'participantLeft': { userId: string };
-  'reconnecting': void;
-  'reconnected': void;
-  'reconnectionFailed': Error;
+  connected: void;
+  disconnected: void;
+  error: Error;
+  joined: { roomId: string; userId: string };
+  deviceReady: void;
+  localVideoStarted: { producer: mediasoupClient.types.Producer };
+  localVideoStopped: void;
+  remoteVideoStarted: { userId: string; producerId: string; track: MediaStreamTrack };
+  remoteVideoStopped: { userId: string; producerId: string };
+  participantJoined: { userId: string };
+  participantLeft: { userId: string };
+  reconnecting: void;
+  reconnected: void;
+  reconnectionFailed: Error;
 }
 
 export interface ConnectionStatus {
@@ -202,4 +203,18 @@ export interface ConnectionStatus {
   queueSize: number;
   processing: boolean;
   reconnecting: boolean;
+}
+
+// === Mocks ===
+
+export interface MockWebSocket {
+  readyState: number;
+  sentMessages: string[];
+  listeners: Map<string, Function[]>;
+  send: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+  simulateOpen(): void;
+  simulateMessage(data: any): void;
+  simulateError(error: Error): void;
+  simulateClose(): void;
 }

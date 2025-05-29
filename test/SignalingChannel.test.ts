@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SignalingChannel } from '../src/sdk/SignalingChannel';
+import { MockWebSocket } from '../src/types/events';
 
-let mockWebSocketInstance: any;
+let mockWebSocketInstance: MockWebSocket;
 
 vi.mock('ws', () => ({
   default: vi.fn().mockImplementation(() => mockWebSocketInstance)
 }));
-
-import { SignalingChannel } from '../src/sdk/SignalingChannel';
 
 describe('SignalingChannel', () => {
   let signaling: SignalingChannel;
