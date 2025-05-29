@@ -11,31 +11,34 @@ import { ConnectionStatus, VideoCallEvents } from '../types/events';
 export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
   private signaling: SignalingChannel;
   private eventQueue: EventQueue;
-  
+
   private device?: mediasoupClient.Device;
   private sendTransport?: mediasoupClient.types.Transport;
   private recvTransport?: mediasoupClient.types.Transport;
   private localVideoProducer?: mediasoupClient.types.Producer;
-  
+
   // Remote participants management
-  private remoteConsumers = new Map<string, {
-    userId: string;
-    producerId: string;
-    consumer: mediasoupClient.types.Consumer;
-    track: MediaStreamTrack;
-  }>();
-  
+  private remoteConsumers = new Map<
+    string,
+    {
+      userId: string;
+      producerId: string;
+      consumer: mediasoupClient.types.Consumer;
+      track: MediaStreamTrack;
+    }
+  >();
+
   private roomId?: string;
   private userId?: string;
   private serverUrl: string;
-  
+
   // Reconnection state
   private isReconnecting = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000; // Start with 1 second
   private reconnectTimer?: NodeJS.Timeout;
-  
+
   // State preservation for reconnection
   private wasVideoActive = false;
   private savedMediaStream?: MediaStream;
@@ -45,7 +48,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
     this.serverUrl = serverUrl;
     this.signaling = new SignalingChannel(serverUrl);
     this.eventQueue = new EventQueue();
-    
+
     // Set up signaling event handlers - only once in constructor
     this.setupSignalingEvents();
   }
@@ -57,7 +60,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
   private setupSignalingEvents(): void {
     this.signaling.on('open', () => {
       console.log('[VideoCallClient] Signaling connected');
-      
+
       if (this.isReconnecting) {
         this.handleReconnectionSuccess();
       } else {
@@ -67,46 +70,46 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
 
     this.signaling.on('close', () => {
       console.log('[VideoCallClient] Signaling disconnected');
-      
+
       if (!this.isReconnecting) {
         this.emit('disconnected');
         this.initiateReconnection();
       }
     });
 
-    this.signaling.on('error', (error) => {
+    this.signaling.on('error', error => {
       console.error('[VideoCallClient] Signaling error:', error);
       this.emit('error', error);
-      
+
       if (!this.isReconnecting) {
         this.initiateReconnection();
       }
     });
 
-    this.signaling.on('joined', (data) => {
+    this.signaling.on('joined', data => {
       console.log(`[VideoCallClient] Joined room: ${data.roomId}`);
       this.emit('joined', { roomId: data.roomId, userId: data.userId });
     });
 
-    this.signaling.on('newProducer', async (data) => {
+    this.signaling.on('newProducer', async data => {
       console.log(`[VideoCallClient] New producer from user ${data.userId}`);
       this.emit('participantJoined', { userId: data.userId });
-      
+
       await this.eventQueue.add(async () => {
         await this.handleNewProducer(data.producerId, data.userId);
       });
     });
 
-    this.signaling.on('producerClosed', async (data) => {
+    this.signaling.on('producerClosed', async data => {
       console.log(`[VideoCallClient] Producer closed: ${data.producerId} from ${data.userId}`);
       this.emit('participantLeft', { userId: data.userId });
-      
+
       await this.eventQueue.add(async () => {
         await this.handleProducerClosed(data.producerId, data.userId);
       });
     });
 
-    this.signaling.on('routerRtpCapabilities', async (data) => {
+    this.signaling.on('routerRtpCapabilities', async data => {
       console.log('[VideoCallClient] Received router RTP capabilities');
       await this.eventQueue.add(async () => {
         try {
@@ -148,23 +151,23 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
    */
   async leaveCall(): Promise<void> {
     console.log('[VideoCallClient] Leaving call...');
-    
+
     // Stop reconnection attempts
     this.stopReconnection();
-    
+
     // Stop video if active
     if (this.localVideoProducer) {
       await this.stopVideo();
     }
-    
+
     // Cleanup all resources
     await this.cleanup();
-    
+
     // Reset state
     this.roomId = undefined;
     this.userId = undefined;
     this.wasVideoActive = false;
-    
+
     console.log('[VideoCallClient] Left call successfully');
   }
 
@@ -175,7 +178,9 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
   async startVideo(): Promise<void> {
     return this.eventQueue.add(async () => {
       if (!this.isReady) {
-        throw new Error('Client not ready. Call joinCall() first and wait for device initialization.');
+        throw new Error(
+          'Client not ready. Call joinCall() first and wait for device initialization.'
+        );
       }
 
       if (this.localVideoProducer) {
@@ -185,7 +190,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
 
       try {
         console.log('[VideoCallClient] Requesting camera access...');
-        
+
         // Reuse saved stream if available (for reconnection)
         let stream = this.savedMediaStream;
         if (!stream || stream.getTracks().every(track => track.readyState === 'ended')) {
@@ -208,11 +213,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
         console.log('[VideoCallClient] Creating video producer...');
         this.localVideoProducer = await this.sendTransport!.produce({
           track: videoTrack,
-          encodings: [
-            { maxBitrate: 500000 },
-            { maxBitrate: 1000000 },
-            { maxBitrate: 2000000 },
-          ],
+          encodings: [{ maxBitrate: 500000 }, { maxBitrate: 1000000 }, { maxBitrate: 2000000 }],
           codecOptions: {
             videoGoogleStartBitrate: 1000,
           },
@@ -228,7 +229,6 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
           this.localVideoProducer = undefined;
           this.emit('localVideoStopped');
         });
-
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Failed to start video:', errorMessage);
@@ -261,7 +261,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
     this.isReconnecting = true;
     this.emit('reconnecting');
     console.log('[VideoCallClient] Initiating reconnection...');
-    
+
     this.attemptReconnection();
   }
 
@@ -277,33 +277,35 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1) + Math.random() * 1000;
-    
-    console.log(`[VideoCallClient] Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay)}ms`);
-    
+    const delay =
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1) + Math.random() * 1000;
+
+    console.log(
+      `[VideoCallClient] Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay)}ms`
+    );
+
     this.reconnectTimer = setTimeout(async () => {
       try {
         // Create new signaling connection
         this.signaling = new SignalingChannel(this.serverUrl);
         this.setupSignalingEvents();
-        
+
         // Wait for connection
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Reconnection timeout'));
           }, 10000);
-          
+
           this.signaling.on('open', () => {
             clearTimeout(timeout);
             resolve();
           });
-          
-          this.signaling.on('error', (error) => {
+
+          this.signaling.on('error', error => {
             clearTimeout(timeout);
             reject(error);
           });
         });
-        
       } catch (error) {
         console.error('[VideoCallClient] Reconnection attempt failed:', error);
         this.attemptReconnection();
@@ -316,24 +318,24 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
    */
   private async handleReconnectionSuccess(): Promise<void> {
     console.log('[VideoCallClient] Reconnection successful');
-    
+
     try {
       // Rejoin the room
       if (this.roomId && this.userId) {
-        await this.signaling.sendWhenReady({ 
-          type: 'join', 
-          roomId: this.roomId, 
-          userId: this.userId 
+        await this.signaling.sendWhenReady({
+          type: 'join',
+          roomId: this.roomId,
+          userId: this.userId,
         });
       }
-      
+
       // Reset reconnection state
       this.isReconnecting = false;
       this.reconnectAttempts = 0;
       this.stopReconnection();
-      
+
       this.emit('reconnected');
-      
+
       // Restore video if it was active
       if (this.wasVideoActive && !this.localVideoProducer) {
         try {
@@ -342,7 +344,6 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
           console.error('[VideoCallClient] Failed to restore video after reconnection:', error);
         }
       }
-      
     } catch (error) {
       console.error('[VideoCallClient] Failed to restore state after reconnection:', error);
       this.attemptReconnection();
@@ -367,7 +368,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
   private async handleNewProducer(producerId: string, userId: string): Promise<void> {
     try {
       console.log(`[VideoCallClient] Handling new producer ${producerId} from ${userId}`);
-      
+
       if (!this.device || !this.device.loaded) {
         throw new Error('Device not ready for consuming');
       }
@@ -377,7 +378,6 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
       }
 
       await this.createConsumer(producerId, userId);
-      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[VideoCallClient] Failed to handle new producer:`, errorMessage);
@@ -411,7 +411,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
       const errorName = error instanceof Error ? error.name : 'UnknownError';
 
       console.error('[VideoCallClient] Failed to initialize device:', errorMessage);
-      
+
       if (errorName === 'UnsupportedError') {
         console.log('[VideoCallClient] Device not supported in current environment (Node.js)');
       }
@@ -430,7 +430,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
           reject(new Error('Transport creation timeout'));
         }, 10000);
 
-        this.signaling.on('webRtcTransportCreated', (data) => {
+        this.signaling.on('webRtcTransportCreated', data => {
           clearTimeout(timeout);
           resolve(data);
         });
@@ -463,25 +463,28 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
         }
       });
 
-      this.sendTransport.on('produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
-        try {
-          const response = await new Promise<any>((resolve, reject) => {
-            this.signaling.on('producerCreated', resolve);
+      this.sendTransport.on(
+        'produce',
+        async ({ kind, rtpParameters, appData }, callback, errback) => {
+          try {
+            const response = await new Promise<any>((resolve, reject) => {
+              this.signaling.on('producerCreated', resolve);
 
-            this.signaling.sendWhenReady({
-              type: 'produce',
-              transportId: this.sendTransport!.id,
-              kind,
-              rtpParameters,
-              appData,
+              this.signaling.sendWhenReady({
+                type: 'produce',
+                transportId: this.sendTransport!.id,
+                kind,
+                rtpParameters,
+                appData,
+              });
             });
-          });
 
-          callback({ id: response.producerId });
-        } catch (error) {
-          errback(error instanceof Error ? error : new Error('Unknown error'));
+            callback({ id: response.producerId });
+          } catch (error) {
+            errback(error instanceof Error ? error : new Error('Unknown error'));
+          }
         }
-      });
+      );
 
       console.log('[VideoCallClient] Send transport created successfully');
     } catch (error) {
@@ -497,13 +500,13 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
   private async createRecvTransport(): Promise<void> {
     try {
       console.log('[VideoCallClient] Creating receive transport...');
-      
+
       const transportData = await new Promise<any>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Transport creation timeout'));
         }, 10000);
 
-        this.signaling.on('webRtcTransportCreated', (data) => {
+        this.signaling.on('webRtcTransportCreated', data => {
           clearTimeout(timeout);
           resolve(data);
         });
@@ -511,7 +514,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
         this.signaling.sendWhenReady({
           type: 'createWebRtcTransport',
           consuming: true,
-          forceTcp: false
+          forceTcp: false,
         });
       });
 
@@ -528,7 +531,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
           await this.signaling.sendWhenReady({
             type: 'connectTransport',
             transportId: this.recvTransport!.id,
-            dtlsParameters
+            dtlsParameters,
           });
           callback();
         } catch (error) {
@@ -550,13 +553,13 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
   private async createConsumer(producerId: string, userId: string): Promise<void> {
     try {
       console.log(`[VideoCallClient] Creating consumer for producer ${producerId}`);
-      
+
       const consumerData = await new Promise<any>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Consumer creation timeout'));
         }, 10000);
 
-        this.signaling.on('consumerCreated', (data) => {
+        this.signaling.on('consumerCreated', data => {
           clearTimeout(timeout);
           resolve(data);
         });
@@ -565,7 +568,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
           type: 'consume',
           transportId: this.recvTransport!.id,
           producerId,
-          rtpCapabilities: this.device!.rtpCapabilities
+          rtpCapabilities: this.device!.rtpCapabilities,
         });
       });
 
@@ -573,19 +576,18 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
         id: consumerData.consumerId,
         producerId: consumerData.producerId,
         kind: consumerData.kind,
-        rtpParameters: consumerData.rtpParameters
+        rtpParameters: consumerData.rtpParameters,
       });
 
       this.remoteConsumers.set(producerId, {
         userId,
         producerId,
         consumer,
-        track: consumer.track
+        track: consumer.track,
       });
 
       console.log(`[VideoCallClient] Consumer created for ${userId}: ${consumer.id}`);
       this.emit('remoteVideoStarted', { userId, producerId, track: consumer.track });
-      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to create consumer:', errorMessage);
@@ -598,38 +600,38 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
    */
   private async cleanup(): Promise<void> {
     console.log('[VideoCallClient] Cleaning up resources...');
-    
+
     // Close all remote consumers
     for (const [producerId, consumerInfo] of this.remoteConsumers) {
       try {
         consumerInfo.consumer.close();
-        this.emit('remoteVideoStopped', { 
-          userId: consumerInfo.userId, 
-          producerId 
+        this.emit('remoteVideoStopped', {
+          userId: consumerInfo.userId,
+          producerId,
         });
       } catch (error) {
         console.error(`Failed to close consumer ${producerId}:`, error);
       }
     }
     this.remoteConsumers.clear();
-    
+
     // Close transports
     if (this.sendTransport) {
       this.sendTransport.close();
       this.sendTransport = undefined;
     }
-    
+
     if (this.recvTransport) {
       this.recvTransport.close();
       this.recvTransport = undefined;
     }
-    
+
     // Close local media stream
     if (this.savedMediaStream) {
       this.savedMediaStream.getTracks().forEach(track => track.stop());
       this.savedMediaStream = undefined;
     }
-    
+
     this.localVideoProducer = undefined;
     this.device = undefined;
   }
@@ -665,7 +667,7 @@ export class VideoCallClient extends TypedEventEmitter<VideoCallEvents> {
     for (const [producerId, consumer] of this.remoteConsumers) {
       tracks.set(producerId, {
         userId: consumer.userId,
-        track: consumer.track
+        track: consumer.track,
       });
     }
     return tracks;

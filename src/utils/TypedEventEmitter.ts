@@ -10,9 +10,7 @@ export class TypedEventEmitter<TEventMap extends Record<string, any>> {
    */
   on<K extends keyof TEventMap>(
     event: K,
-    listener: TEventMap[K] extends void 
-      ? () => void 
-      : (data: TEventMap[K]) => void
+    listener: TEventMap[K] extends void ? () => void : (data: TEventMap[K]) => void
   ): this {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -26,9 +24,7 @@ export class TypedEventEmitter<TEventMap extends Record<string, any>> {
    */
   off<K extends keyof TEventMap>(
     event: K,
-    listener: TEventMap[K] extends void 
-      ? () => void 
-      : (data: TEventMap[K]) => void
+    listener: TEventMap[K] extends void ? () => void : (data: TEventMap[K]) => void
   ): this {
     const handlers = this.listeners.get(event);
     if (handlers) {
@@ -68,15 +64,13 @@ export class TypedEventEmitter<TEventMap extends Record<string, any>> {
    */
   once<K extends keyof TEventMap>(
     event: K,
-    listener: TEventMap[K] extends void 
-      ? () => void 
-      : (data: TEventMap[K]) => void
+    listener: TEventMap[K] extends void ? () => void : (data: TEventMap[K]) => void
   ): this {
     const onceWrapper = (data: TEventMap[K]) => {
       this.off(event, onceWrapper as any);
       (listener as any)(data);
     };
-    
+
     return this.on(event, onceWrapper as any);
   }
 
