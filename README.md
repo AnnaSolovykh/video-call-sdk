@@ -26,29 +26,33 @@ npm install
 # Start signaling server
 npm run start:server
 
-# Run integration tests
+# Run integration tests in the second terminal
 npm run dev:test
 
-# Run unit tests with watch mode
-npm run test:watch
+# Run unit tests 
+npm run test
+
 ```
 
 ## 📁 Структура проекта
 
 ```
 video-call-sdk/
-├── src/
-│   ├── sdk/              # Core SDK components
-│   │   ├── VideoCallClient.ts
-│   │   └── SignalingChannel.ts
+src/
+│   ├── sdk/              # Main SDK
+│   │   ├── VideoCallClient.ts   # Main orchestrator
+│   │   ├── SignalingChannel.ts  # WebSocket abstraction
+│   │   └── managers/            # Specialized managers
+│   │       ├── ConnectionManager.ts
+│   │       ├── MediaManager.ts
+│   │       └── DeviceManager.ts
 │   ├── server/           # Signaling server for testing
 │   │   ├── signalling-server.ts
 │   │   └── server.js
 │   ├── utils/            # Utility classes
 │   │   ├── EventQueue.ts
 │   │   └── TypedEventEmitter.ts
-│   └── types/            # TypeScript definitions
-│       └── events.ts
+│   └── types/ # TypeScript definitions
 ├── test/                 # Test suites
 │   ├── client-test.ts
 │   ├── VideoCallClient.test.ts

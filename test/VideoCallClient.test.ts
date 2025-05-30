@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { VideoCallClient } from '../src/sdk/VideoCallClient';
-import { MockWebSocket } from '../src/types/events';
+import { MockWebSocket } from '../src/types/test'; 
 
 let mockWebSocketInstance: MockWebSocket;
 

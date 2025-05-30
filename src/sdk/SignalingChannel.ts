@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-import { AnySignalMessage } from '../types/events';
+import { AnySignalMessage } from '../types/signaling';
 
 /**
  * A signaling channel abstraction over WebSocket.
@@ -7,7 +7,7 @@ import { AnySignalMessage } from '../types/events';
  */
 export class SignalingChannel {
   private socket: WebSocket;
-  private listeners = new Map<string, ((data: any) => void)[]>();
+  private listeners = new Map<string, ((data: unknown) => void)[]>();
   private isConnected = false;
   // Queue of messages to be sent once the WebSocket connection is open
   private messageQueue: AnySignalMessage[] = [];

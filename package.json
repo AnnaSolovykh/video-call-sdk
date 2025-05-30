@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start:server": "node src/server/signalling-server.ts",
+    "start:server": "tsx src/server/signalling-server.ts",
     "dev:test": "tsx test/client-test.ts",
     "watch:test": "nodemon --watch src --exec 'tsx test/client-test.ts'",
     "test": "vitest",
