@@ -2,19 +2,48 @@ version: '3.8'
 
 services:
   signaling-server:
-    build: .
+    build:
+      context: .
+      target: production
+    container_name: video-call-signaling
     ports:
       - "3001:3001"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "const ws = require('ws'); const client = new ws('ws://localhost:3001'); client.on('open', () => { client.close(); process.exit(0); }); client.on('error', () => process.exit(1));"]
+      test: |
+        node -e "
+        const ws = require('ws');
+        const client = new ws('ws://localhost:3001');
+        setTimeout(() => process.exit(1), 5000);
+        client.on('open', () => { client.close(); process.exit(0); });
+        client.on('error', () => process.exit(1));"
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 10s
+    networks:
+      - video-call-network
+
+  # Development version with volume mounting
+  signaling-server-dev:
+    build:
+      context: .
+      target: development
+    container_name: video-call-signaling-dev
+    ports:
+      - "3002:3001"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./src/server:/app/src/server:ro
+    restart: unless-stopped
+    networks:
+      - video-call-network
+    profiles:
+      - dev
 
 networks:
-  default:
-    name: video-call-network
+  video-call-network:
+    driver: bridge

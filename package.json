@@ -1,16 +1,21 @@
 {
- "scripts": {
+  "scripts": {
     "start:server": "node src/server/signalling-server.ts",
     "dev:test": "tsx test/client-test.ts",
     "watch:test": "nodemon --watch src --exec 'tsx test/client-test.ts'",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:integration": "tsx test/client-test.ts",
+    "test:docker": "node test/docker-test.js",
     "format": "prettier --write \"src/**/*.{ts,js,json,md}\"",
-    "docker:build": "docker build -t video-call-server .",
-    "docker:run": "docker run -p 3001:3001 video-call-server",
-    "docker:up": "docker-compose up",
-    "docker:down": "docker-compose down"
+    "docker:build": "docker compose build",
+    "docker:dev": "docker compose --profile dev up -d signaling-server-dev",
+    "docker:prod": "docker compose up -d signaling-server",
+    "docker:test": "docker compose up -d signaling-server && sleep 3 && node test/docker-test.js",
+    "docker:stop": "docker compose down",
+    "docker:logs": "docker compose logs -f signaling-server",
+    "docker:logs-dev": "docker compose logs -f signaling-server-dev",
+    "docker:clean": "docker compose down -v && docker system prune -f"
   },
   "dependencies": {
     "mediasoup-client": "^3.11.0",
