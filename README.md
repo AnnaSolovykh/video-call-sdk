@@ -2,23 +2,102 @@
 
 TypeScript SDK для создания приложений видеозвонков с использованием WebRTC и mediasoup.
 
-## Quick Start
+## 🚀 Quick Start
+
+### Docker Setup
 
 ```bash
-# Установка зависимостей
+# Start production server (port 3001)
+npm run docker:prod
+
+# Run integration tests
+npm run docker:test
+
+# Stop all containers
+npm run docker:stop
+```
+
+### Local Development
+
+```bash
+# Install dependencies
 npm install
 
-# Запуск сигнального сервера
+# Start signaling server
 npm run start:server
 
-# Запуск интеграционных тестов
+# Run integration tests
 npm run dev:test
 
-# Запуск unit-тестов
+# Run unit tests with watch mode
 npm run test:watch
 ```
 
-## API Reference
+## 📁 Структура проекта
+
+```
+video-call-sdk/
+├── src/
+│   ├── sdk/              # Core SDK components
+│   │   ├── VideoCallClient.ts
+│   │   └── SignalingChannel.ts
+│   ├── server/           # Signaling server for testing
+│   │   ├── signalling-server.ts
+│   │   └── server.js
+│   ├── utils/            # Utility classes
+│   │   ├── EventQueue.ts
+│   │   └── TypedEventEmitter.ts
+│   └── types/            # TypeScript definitions
+│       └── events.ts
+├── test/                 # Test suites
+│   ├── client-test.ts
+│   ├── VideoCallClient.test.ts
+│   └── SignalingChannel.test.ts
+├── Dockerfile            # Docker configuration
+├── docker-compose.yml    # Docker Compose setup
+├── PRODUCTION_SCALABILITY.md  
+└── PROPOSED_IMPROVEMENTS.md  
+```
+
+## 🏗️ Architecture Decisions
+
+### Система очереди событий
+
+Реализует гарантированную последовательную обработку WebRTC операций для предотвращения состояний гонки при создании транспортов и producers.
+
+### Интеграция с TypeScript
+
+Использует продвинутые возможности TypeScript включая generics, conditional types и типизированные event emitters для обеспечения безопасности на этапе компиляции.
+
+### Intelligent Reconnection System
+
+Автоматическое переподключение с сохранением состояния звонка (roomId, userId, активность видео) и exponential backoff для стабильности соединения.
+
+## 📋 Proposed Improvements
+
+**Архитектурные предложения по улучшению SDK находятся в файле `PROPOSED_IMPROVEMENTS.md`**
+
+## 🚀 Production Scalability
+
+**Решения для продакшн масштабирования описаны в `PRODUCTION_SCALABILITY.md`**
+
+## 🛠️ Development
+
+```bash
+# Install dependencies
+npm install
+
+# Development with file watching
+npm run watch:test
+
+# Code formatting
+npm run format
+
+# Run all tests
+npm run test
+```
+
+## 📚 API Reference
 
 ### VideoCallClient
 
@@ -50,116 +129,54 @@ npm run test:watch
 - `participantJoined` - Новый участник присоединился к комнате
 - `error` - Произошла ошибка
 
-### CallStore (MobX)
+## 🐳 Docker Configuration
 
-**Observable State:**
-
-- `callState: CallState` - Текущее состояние звонка
-- `participants: Map<string, Participant>` - Участники звонка
-- `connectionStatus: ConnectionStatus` - Статус подключения
-
-**Computed Values:**
-
-- `isConnected: boolean` - Статус соединения
-- `isInCall: boolean` - В звонке ли пользователь
-- `canStartVideo: boolean` - Можно ли запустить видео
-- `participantList: Participant[]` - Список участников
-- `callMetrics: CallMetrics` - Метрики качества звонка
-
-**Actions:**
-
-- `initializeClient(serverUrl: string)` - Инициализация клиента
-- `joinCall(roomId: string, userId: string)` - Присоединение к звонку
-- `leaveCall()` - Покинуть звонок
-- `startVideo()` - Запустить видео
-- `stopVideo()` - Остановить видео
-
-## Architecture Decisions
-
-### Система очереди событий
-
-Реализует гарантированную последовательную обработку WebRTC операций для предотвращения состояний гонки при создании транспортов и producers.
-
-### Интеграция с TypeScript
-
-Использует продвинутые возможности TypeScript включая generics, conditional types и типизированные event emitters для обеспечения безопасности на этапе компиляции.
-
-### Intelligent Reconnection System
-
-Автоматическое переподключение с сохранением состояния звонка (roomId, userId, активность видео) и exponential backoff для стабильности соединения.
-
-## Proposed Improvements
-
-**Архитектурные предложения по улучшению SDK находятся в файле `PROPOSED_IMPROVEMENTS.md`**
-
-## Production Scalability
-
-**Решения для продакшн масштабирования описаны в `PRODUCTION_SCALABILITY.md`**
-
-## Docker Setup
-
-### Разработка
+### Development Environment
 
 ```bash
-# Запуск сигнального сервера
-docker-compose up
+# Start development server (runs on port 3002)
+npm run docker:dev
 
-# Или сборка и запуск вручную
-docker build -t video-call-server .
-docker run -p 3001:3001 video-call-server
+# View development logs
+npm run docker:logs-dev
 ```
 
-### Продакшн развертывание
-
-```yaml
-# docker-compose.prod.yml
-version: '3.8'
-services:
-  signaling-cluster:
-    image: video-call-server:latest
-    deploy:
-      replicas: 3
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
-```
-
-## Структура проекта
-
-```
-video-call-sdk/
-├── src/
-│   ├── sdk/              # Основные компоненты SDK
-│   │   ├── VideoCallClient.ts
-│   │   └── SignalingChannel.ts
-│   ├── server/             Сигнальный сервер
-│   │   ├── signalling-server.js
-│   │   └── server.ts
-│   ├── utils/            # Утилиты
-│   │   ├── EventQueue.ts
-│   │   └── TypedEventEmitter.ts
-│   └── types/            # TypeScript определения
-│       └── events.ts
-├── test/                 # Тесты
-│   ├── client-test.ts
-│   ├── VideoCallClient.test.ts
-│   └── SignalingChannel.test.ts
-├── PRODUCTION_SCALABILITY.md  
-└── PROPOSED_IMPROVEMENTS.md  
-```
-
-## Development
+### Production Environment
 
 ```bash
-# Установка зависимостей
-npm install
+# Build and start production server (runs on port 3001)
+npm run docker:prod
 
-# Разработка с отслеживанием файлов
-npm run watch:test
-
-# Форматирование кода
-npm run format
-
-# Запуск всех тестов
-npm run test
+# View production logs
+npm run docker:logs
 ```
+
+### Available Docker Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run docker:build` | Build Docker images |
+| `npm run docker:dev` | Start development server on port 3002 |
+| `npm run docker:prod` | Start production server on port 3001 |
+| `npm run docker:test` | Run integration tests with Docker |
+| `npm run docker:stop` | Stop all containers |
+| `npm run docker:logs` | View production server logs |
+| `npm run docker:logs-dev` | View development server logs |
+| `npm run docker:clean` | Clean up containers and volumes |
+
+### Troubleshooting
+
+**Container won't start:**
+```bash
+# Check container logs
+npm run docker:logs
+
+# Restart containers
+npm run docker:stop
+npm run docker:prod
+```
+
+**Port conflicts:**
+- Production server uses port 3001
+- Development server uses port 3002
+- Make sure these ports are available
